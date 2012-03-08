@@ -12,7 +12,7 @@ To install;
 
 3. Set up a cron job with the following command and run it nightly
 
-    ./__mysqldbbackup.sh <database_name>
+    ./__mysqldbbackup.sh <database_name> <mysql_user> <mysql_password>
 
 4. Set up a cron job with the following command and run it every other day
 
