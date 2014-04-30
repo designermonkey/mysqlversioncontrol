@@ -53,7 +53,7 @@ USAGE
 DESCRIPTION
     mysqlversioncontrol allows a MySQL database, or a specific table in a database
     to be version controlled as a SQL file. This allows tracking of changes since
-    the last commit, and easy access to reversions.
+    the last commit, and easy access to revisions.
 
 OPTIONS
     -h, --help          Show this help screen.

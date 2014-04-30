@@ -4,7 +4,7 @@
     mysqlversioncontrol [<options>]
 
 ## Description
-`mysqlversioncontrol` allows a MySQL database, or a specific table in a database to be version controlled as a SQL file. This allows tracking of changes since the last commit, and easy access to reversions.
+`mysqlversioncontrol` allows a MySQL database, or a specific table in a database to be version controlled as a SQL file. This allows tracking of changes since the last commit, and easy access to revisions.
 
 ## Options
     -h, --help          Show this help screen.
@@ -21,5 +21,5 @@
 Just run the `install` script to install `mysqlversioncontrol`. Once complete, the script can be called.
 
     mysqlversioncontrol -u name -p password -d somedatabase
-    
+
 By default, the output is to `/data/dumps`, using a temp folder at `/data/tmp`. If you need to change them , please edit the script, and the variables are at the top.
