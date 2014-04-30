@@ -1,19 +1,25 @@
 #MySQL Versioning Backup
 
-To install;
+## Usage
+    mysqlversioncontrol [<options>]
 
-1. Clone this repo to your MySQL Server
+## Description
+`mysqlversioncontrol` allows a MySQL database, or a specific table in a database to be version controlled as a SQL file. This allows tracking of changes since the last commit, and easy access to reversions.
 
-    git clone <repo_url> <database_name>
+## Options
+    -h, --help          Show this help screen.
+    -v, --version       Show the current version number.
+    -u, --user          Set the MySQL user name.
+    -p, --password      Set the MySQL password.
+    -d, --database      Set the database (Required).
+    -t, --table         Set an optional table to limit the process to.
+    -b, --branch        A branch to commit the dump to, and to match in the repository. (Defaults to master)
+    -r, --repo          A repository to push the committed dump to. (Defaults to origin)
 
-2. `cd` into the directory and make the shell scripts executable
+## Installation
 
-    chmod +x __*
+Just run the `install` script to install `mysqlversioncontrol`. Once complete, the script can be called.
 
-3. Set up a cron job with the following command and run it nightly
-
-    ./__mysqldbbackup.sh <database_name> <mysql_user> <mysql_password>
-
-4. Set up a cron job with the following command and run it every other day
-
-    git gc
+    mysqlversioncontrol -u name -p password -d somedatabase
+    
+By default, the output is to `/data/dumps`, using a temp folder at `/data/tmp`. If you need to change them , please edit the script, and the variables are at the top.

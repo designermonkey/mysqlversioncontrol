@@ -1,0 +1,25 @@
+#! /usr/bin/env bash
+
+readonly ERROR_SUDO=2
+
+if [[ $(whoami) != "root" ]]; then
+    runsudo;
+fi
+
+runsudo() {
+    echo "installer needs root access. Please run as sudo";
+    exit $ERROR_SUDO
+}
+
+main() {
+    ln -s $(pwd)/mysqlversioncontrol /usr/local/bin/mysqlversioncontrol
+
+    chmod a+x $(pwd)/mysqlversioncontrol
+}
+
+echo "Installing mysqlversioncontrol."
+
+main
+
+echo "Installed link at:"
+echo "/usr/local/bin/mysqlversioncontrol"
