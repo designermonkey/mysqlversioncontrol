@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+
+#  The MIT License (MIT)
+#
+#  Copyright (c) 2013 John Porter
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of
+#  this software and associated documentation files (the "Software"), to deal in
+#  the Software without restriction, including without limitation the rights to
+#  use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+#  the Software, and to permit persons to whom the Software is furnished to do so,
+#  subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all
+#  copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+#  FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+#  COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+#  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+#  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+USERNAME="";
+PASSWORD="";
+DATABASE="";
+TABLE="";
+
+REPO="origin";
+BRANCH="master";
+
+TMP="/data/tmp";
+DUMP_PATH="/data/dumps";
+SKIP_STRING="Tables_in";
+
+readonly VERSION="0.0.1";
+
+show_version() {
+    echo "mysqlversioncontrol version ${VERSION}";
+    exit 0
+}
+
+usage() {
+    echo "mysqlversioncontrol [<options>]";
+    exit 0
+}
+
+usage_long() {
+less -FRSX << EOF
+USAGE
+    mysqlversioncontrol [<options>]
+
+DESCRIPTION
+    mysqlversioncontrol allows a MySQL database, or a specific table in a database
+    to be version controlled as a SQL file. This allows tracking of changes since
+    the last commit, and easy access to reversions.
+
+OPTIONS
+    -h, --help          Show this help screen.
+    -v, --version       Show the current version number.
+    -u, --user          Set the MySQL user name.
+    -p, --password      Set the MySQL password.
+    -d, --database      Set the database (Required).
+    -t, --table         Set an optional table to limit the process to.
+    -b, --branch        A branch to commit the dump to, and to match in the repository. (Defaults to master)
+    -r, --repo          A repository to push the committed dump to. (Defaults to origin)
+EOF
+exit 0
+}
+
+dump_database() {
+    mkdir -p ${DUMP_PATH}/${DATABASE} ${TMP}/${DATABASE};
+
+    if [[ $TABLE != "" ]]; then
+        # Dump the schema only
+        mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --no-data ${DATABASE} ${TABLE} > "${TMP}/${DATABASE}/schema_${TABLE}.sql";
+
+        # Dump the data only
+        mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --skip-extended-insert --no-create-info ${DATABASE} ${TABLE} > "${TMP}/${DATABASE}/data_${TABLE}.sql";
+
+        sed '$d' ${TMP}/${DATABASE}/data_${TABLE}.sql > ${DUMP_PATH}/${DATABASE}/data_${TABLE}.sql;
+        sed '$d' ${TMP}/${DATABASE}/schema_${TABLE}.sql > ${DUMP_PATH}/${DATABASE}/schema_${TABLE}.sql;
+    else
+        for TABLENAME in `mysql -u${USERNAME} -p${PASSWORD} ${DATABASE} -e 'SHOW TABLES'`;
+        do
+            if [[ ${TABLENAME} =~ .*${SKIP_STRING}.* ]]; then
+                continue;
+            fi
+
+            # Dump the schema only
+            mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --no-data ${DATABASE} ${TABLENAME} > "${TMP}/${DATABASE}/schema_${TABLENAME}.sql";
+
+            # Dump the data only
+            mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --skip-extended-insert --no-create-info ${DATABASE} ${TABLENAME} > "${TMP}/${DATABASE}/data_${TABLENAME}.sql";
+
+            sed '$d' ${TMP}/${DATABASE}/data_${TABLENAME}.sql > ${DUMP_PATH}/${DATABASE}/data_${TABLENAME}.sql;
+            sed '$d' ${TMP}/${DATABASE}/schema_${TABLENAME}.sql > ${DUMP_PATH}/${DATABASE}/schema_${TABLENAME}.sql;
+        done
+    fi
+
+    rm -R ${TMP}/${DATABASE};
+}
+
+version_control()
+{
+    DATE=$(date);
+    MSG="Dump of ${DATABASE} on ${DATE}";
+
+    if [[ $TABLE != "" ]]; then
+        MSG="Dump of ${DATABASE}, ${TABLE} table on ${DATE}";
+    fi
+
+    cd ${DUMP_PATH}/${DATABASE}
+    git init;
+
+    if [[ `git branch | egrep "^\*?[[:space:]]+${BRANCH}$"` ]]; then
+        git checkout ${BRANCH};
+    else
+        git checkout -b ${BRANCH};
+    fi
+
+    git add .;
+    git commit -m "${MSG}";
+
+    if [[ `git remote | egrep "^${REPO}"` ]]; then
+        git push ${REPO} ${BRANCH};
+    fi
+
+    git gc --auto --aggressive
+}
+
+main() {
+    dump_database
+    version_control
+}
+
+if [[ $# = 0 ]]; then
+    usage;
+fi
+
+while test $# != 0
+do
+    case "$1" in
+        -v|--version)
+            show_version
+            ;;
+        -h|--help)
+            usage_long
+            ;;
+        -u|--user*)
+            case "$#,$1" in
+                *,*=*)
+                    USERNAME=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        USERNAME="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+        -p|--password*)
+            case "$#,$1" in
+                *,*=*)
+                    PASSWORD=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        PASSWORD="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+        -d|--database*)
+            case "$#,$1" in
+                *,*=*)
+                    DATABASE=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        DATABASE="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+        -t|--table*)
+            case "$#,$1" in
+                *,*=*)
+                    TABLE=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        TABLE="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+        -r|--repo*)
+            case "$#,$1" in
+                *,*=*)
+                    REPO=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        REPO="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+        -b|--branch*)
+            case "$#,$1" in
+                *,*=*)
+                    BRANCH=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        BRANCH="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+    shift
+done
+
+main
