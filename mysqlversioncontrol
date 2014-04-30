@@ -64,6 +64,8 @@ OPTIONS
     -t, --table         Set an optional table to limit the process to.
     -b, --branch        A branch to commit the dump to, and to match in the repository. (Defaults to master)
     -r, --repo          A repository to push the committed dump to. (Defaults to origin)
+    --path              Path to dump the database to, will be prepended with the database name
+    --tmp               Path to the temp folder to use for dumps.
 EOF
 exit 0
 }
@@ -225,6 +227,33 @@ do
                     ;;
             esac
             ;;
+        --path*)
+            case "$#,$1" in
+                *,*=*)
+                    DUMP_PATH=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        DUMP_PATH="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+        --tmp*)
+            case "$#,$1" in
+                *,*=*)
+                    TMP=$(expr "z$1" : 'z-[^=]*=\(.*\)')
+                    ;;
+                *)
+                    if ! echo "$2" | egrep -q '^-'; then
+                        TMP="$2"
+                        shift
+                    fi
+                    ;;
+            esac
+            ;;
+
     esac
     shift
 done
