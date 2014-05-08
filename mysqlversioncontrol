@@ -28,6 +28,8 @@ TABLE="";
 
 REPO="origin";
 BRANCH="master";
+SCHEMA=1;
+DATA=1;
 
 TMP="/data/tmp";
 DUMP_PATH="/data/dumps";
@@ -66,22 +68,48 @@ OPTIONS
     -r, --repo          A repository to push the committed dump to. (Defaults to origin)
     --path              Path to dump the database to, will be prepended with the database name
     --tmp               Path to the temp folder to use for dumps.
+    --schemaless        Do not dump the schemata for the table(s)
+    --dataless          Do not dump the data for the table(s)
 EOF
 exit 0
+}
+
+dump_schema()
+{
+    if [[ $# != 0 ]]; then
+        TABL=$1;
+        mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --no-data ${DATABASE} ${TABL} > "${TMP}/${DATABASE}/schema_${TABL}.sql";
+        sed '$d' ${TMP}/${DATABASE}/schema_${TABL}.sql > ${DUMP_PATH}/${DATABASE}/schema_${TABL}.sql;
+    fi
+}
+
+dump_data()
+{
+    if [[ $# != 0 ]]; then
+        TABL=$1;
+        mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --skip-extended-insert --no-create-info ${DATABASE} ${TABL} > "${TMP}/${DATABASE}/data_${TABL}.sql";
+        sed '$d' ${TMP}/${DATABASE}/data_${TABL}.sql > ${DUMP_PATH}/${DATABASE}/data_${TABL}.sql;
+    fi
 }
 
 dump_database() {
     mkdir -p ${DUMP_PATH}/${DATABASE} ${TMP}/${DATABASE};
 
+    if [[ $SCHEMA = 0 && $DATA = 0 ]]; then
+        echo "Nothing to do";
+        exit 0
+    fi
+
     if [[ $TABLE != "" ]]; then
         # Dump the schema only
-        mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --no-data ${DATABASE} ${TABLE} > "${TMP}/${DATABASE}/schema_${TABLE}.sql";
+        if [[ $SCHEMA = 1 ]]; then
+            dump_schema ${TABLE};
+        fi
 
         # Dump the data only
-        mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --skip-extended-insert --no-create-info ${DATABASE} ${TABLE} > "${TMP}/${DATABASE}/data_${TABLE}.sql";
-
-        sed '$d' ${TMP}/${DATABASE}/data_${TABLE}.sql > ${DUMP_PATH}/${DATABASE}/data_${TABLE}.sql;
-        sed '$d' ${TMP}/${DATABASE}/schema_${TABLE}.sql > ${DUMP_PATH}/${DATABASE}/schema_${TABLE}.sql;
+        if [[ $DATA = 1 ]]; then
+            dump_data ${TABLE};
+        fi
     else
         for TABLENAME in `mysql -u${USERNAME} -p${PASSWORD} ${DATABASE} -e 'SHOW TABLES'`;
         do
@@ -90,13 +118,14 @@ dump_database() {
             fi
 
             # Dump the schema only
-            mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --no-data ${DATABASE} ${TABLENAME} > "${TMP}/${DATABASE}/schema_${TABLENAME}.sql";
+            if [[ $SCHEMA = 1 ]]; then
+                dump_schema ${TABLENAME};
+            fi
 
             # Dump the data only
-            mysqldump -u${USERNAME} -p${PASSWORD} --skip-triggers --skip-extended-insert --no-create-info ${DATABASE} ${TABLENAME} > "${TMP}/${DATABASE}/data_${TABLENAME}.sql";
-
-            sed '$d' ${TMP}/${DATABASE}/data_${TABLENAME}.sql > ${DUMP_PATH}/${DATABASE}/data_${TABLENAME}.sql;
-            sed '$d' ${TMP}/${DATABASE}/schema_${TABLENAME}.sql > ${DUMP_PATH}/${DATABASE}/schema_${TABLENAME}.sql;
+            if [[ $DATA = 1 ]]; then
+                dump_data ${TABLENAME};
+            fi
         done
     fi
 
@@ -253,7 +282,12 @@ do
                     ;;
             esac
             ;;
-
+        --schemaless*)
+            SCHEMA=0
+            ;;
+        --dataless*)
+            DATA=0
+            ;;
     esac
     shift
 done
